@@ -1,22 +1,31 @@
 import tensorflow as tf
 import tensorflow.keras as keras
+from tensorflow.keras.layers import Conv2D, MaxPool2D, Flatten, Dense, Dropout, Reshape, BatchNormalization
 import matplotlib.pyplot as plt
 
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-def scheduler(epoch, lr):
-    if epoch < 30:
+dataGen_training = ImageDataGenerator(
+  rotation_range=10,
+  horizontal_flip=True,
+  vertical_flip = False,
+  width_shift_range=0.1,
+  height_shift_range=0.1,
+  rescale=1. / 255,
+  shear_range=0.05,
+  zoom_range=0.05,
+)
+
+dataGen_testing = ImageDataGenerator(
+  rescale=1. / 255,
+)
+
+
+def scheduler(lr, epochs):
+    if epochs < 30:
         return lr
     else:
-        return lr * tf.math.exp(-0.05)
-
-
-data_augmentation = tf.keras.Sequential([
-  keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
-  keras.layers.experimental.preprocessing.RandomRotation((-0.2, 0.2)),
-  keras.layers.experimental.preprocessing.RandomZoom((0, 0.3)),
-  # keras.layers.experimental.preprocessing.RandomContrast(0.5),
-  # keras.layers.experimental.preprocessing.RandomCrop(2, 2),
-])
+        lr *= tf.math.exp(-0.04)
 
 
 def plot_graphs(all_logs):
@@ -63,8 +72,8 @@ def plot_graphs(all_logs):
 
 def linear_model(x, y, val_x, val_y, opt, loss_func, epochs, batch_size):
     model = keras.Sequential([
-        keras.layers.Flatten(),
-        keras.layers.Dense(10, activation=keras.activations.softmax),
+        Flatten(),
+        Dense(10, activation=keras.activations.softmax),
     ])
 
     model.compile(optimizer=opt, loss=loss_func, metrics=keras.metrics.categorical_accuracy)
@@ -80,22 +89,22 @@ def multi_layer_perceptron(x, y, val_x, val_y, opt, loss_func, epochs, batch_siz
 
     model = keras.Sequential([
         # convert a two dimensional matrix into a vector
-        keras.layers.Flatten(),
-        keras.layers.Dense(1000, activation=activation),
-        keras.layers.Dropout(dropout),
-        keras.layers.Dense(820, activation=activation),
-        keras.layers.Dropout(dropout),
-        keras.layers.Dense(580, activation=activation),
-        keras.layers.Dropout(dropout),
-        keras.layers.Dense(360, activation=activation),
-        keras.layers.Dropout(dropout),
-        keras.layers.Dense(240, activation=activation),
-        keras.layers.Dropout(dropout),
-        keras.layers.Dense(160, activation=activation),
-        keras.layers.Dropout(dropout),
-        keras.layers.Dense(80, activation=activation),
-        keras.layers.Dropout(dropout),
-        keras.layers.Dense(10, activation=keras.activations.softmax),
+        Flatten(),
+        Dense(1000, activation=activation),
+        Dropout(dropout),
+        Dense(820, activation=activation),
+        Dropout(dropout),
+        Dense(580, activation=activation),
+        Dropout(dropout),
+        Dense(360, activation=activation),
+        Dropout(dropout),
+        Dense(240, activation=activation),
+        Dropout(dropout),
+        Dense(160, activation=activation),
+        Dropout(dropout),
+        Dense(80, activation=activation),
+        Dropout(dropout),
+        Dense(10, activation=keras.activations.softmax),
     ])
 
     model.compile(optimizer=opt, loss=loss_func, metrics=keras.metrics.categorical_accuracy)
@@ -108,41 +117,47 @@ def multi_layer_perceptron(x, y, val_x, val_y, opt, loss_func, epochs, batch_siz
     return logs
 
 
-def convolutional_neural_network(x, y, val_x, val_y, opt, loss_func, epochs, batch_size, activation, dropout):
+def convolutional_neural_network(activation):
     model = keras.Sequential([
-        # data_augmentation,
-        keras.layers.Reshape((32, 32, 3)),
+        Reshape((32, 32, 3)),
+        BatchNormalization(),
 
-        keras.layers.Conv2D(64, (3, 3), padding="same", activation=activation),
-        keras.layers.MaxPool2D(),
-        keras.layers.Dropout(dropout),
+        Conv2D(196, (3, 3), padding="same", activation=activation),
+        BatchNormalization(),
+        Conv2D(196, (3, 3), padding="same", activation=activation),
+        BatchNormalization(),
 
-        keras.layers.Conv2D(32, (3, 3), padding="same", activation=activation),
-        keras.layers.MaxPool2D(),
-        keras.layers.Dropout(dropout),
+        MaxPool2D(),
 
-        keras.layers.Conv2D(16, (3, 3), padding="same", activation=activation),
-        keras.layers.MaxPool2D(),
-        keras.layers.Dropout(dropout),
+        Conv2D(92, (3, 3), padding="same", activation=activation),
+        BatchNormalization(),
+        Conv2D(92, (3, 3), padding="same", activation=activation),
+        BatchNormalization(),
+        MaxPool2D(),
 
-        keras.layers.Flatten(),
+        Conv2D(48, (3, 3), padding="same", activation=activation),
+        BatchNormalization(),
+        Conv2D(48, (3, 3), padding="same", activation=activation),
+        BatchNormalization(),
 
-        keras.layers.Dense(64, activation=activation),
-        keras.layers.Dropout(dropout),
+        Flatten(),
 
-        keras.layers.Dense(32, activation=activation),
-        keras.layers.Dropout(dropout),
-
-        keras.layers.Dense(16, activation=activation),
-        keras.layers.Dropout(dropout),
-
-        keras.layers.Dense(10, activation=keras.activations.softmax)
+        Dense(10, activation=keras.activations.softmax)
     ])
 
-    model.compile(optimizer=opt, loss=loss_func, metrics=keras.metrics.categorical_accuracy)
+    model.compile(optimizer=keras.optimizers.Adam(), loss=keras.losses.categorical_crossentropy,
+                  metrics=keras.metrics.categorical_accuracy)
 
-    logs = model.fit(x, y, validation_data=(val_x, val_y), epochs=epochs, batch_size=batch_size,
-                     callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)])
+    logs = model.fit_generator(
+        train_generator,
+        steps_per_epoch=len(x_train) // batch_size,
+        epochs=180,
+        callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)],
+        validation_data=validation_generator,
+        validation_freq=1,
+        validation_steps=valid_steps,
+        verbose=2,
+    )
 
     model.summary()
 
@@ -151,7 +166,7 @@ def convolutional_neural_network(x, y, val_x, val_y, opt, loss_func, epochs, bat
 
 if __name__ == "__main__":
     epochs = 500
-    batch_size = 512
+    batch_size = 256
 
     (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 
@@ -166,6 +181,14 @@ if __name__ == "__main__":
 
     y_train = keras.utils.to_categorical(y_train, 10)
     y_test = keras.utils.to_categorical(y_test, 10)
+
+    train_generator = dataGen_training.flow(x_train, y_train, batch_size=batch_size)
+
+    x_valid = x_train[:150 * batch_size]
+    y_valid = y_train[:150 * batch_size]
+
+    valid_steps = x_valid.shape[0] // batch_size
+    validation_generator = dataGen_testing.flow(x_valid, y_valid, batch_size=batch_size)
 
     all_logs = []
 
@@ -182,13 +205,8 @@ if __name__ == "__main__":
     all_logs.append(log)
     '''
 
-    data = [("relu", "0.1")]
-
-    for activation, dropout in data:
-        dropout = float(dropout)
-        log = convolutional_neural_network(x_train, y_train, x_test, y_test, keras.optimizers.Adam(learning_rate=0.002),
-                                           keras.losses.categorical_crossentropy, epochs, batch_size, activation, dropout)
-        log.history['name'] = activation
-        all_logs.append(log)
+    log = convolutional_neural_network("relu")
+    log.history['name'] = "relu"
+    all_logs.append(log)
 
     plot_graphs(all_logs)
