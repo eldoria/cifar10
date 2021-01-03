@@ -8,7 +8,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 dataGen_training = ImageDataGenerator(
   rotation_range=10,
   horizontal_flip=True,
-  vertical_flip = False,
+  vertical_flip=False,
   width_shift_range=0.1,
   height_shift_range=0.1,
   rescale=1. / 255,
@@ -184,8 +184,8 @@ if __name__ == "__main__":
 
     train_generator = dataGen_training.flow(x_train, y_train, batch_size=batch_size)
 
-    x_valid = x_train[:150 * batch_size]
-    y_valid = y_train[:150 * batch_size]
+    x_valid = x_train[:100 * batch_size]
+    y_valid = y_train[:100 * batch_size]
 
     valid_steps = x_valid.shape[0] // batch_size
     validation_generator = dataGen_testing.flow(x_valid, y_valid, batch_size=batch_size)
